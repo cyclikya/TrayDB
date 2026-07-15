@@ -1,69 +1,80 @@
 # TrayDB
 
-TrayDB - небольшое приложение для Windows, которое позволяет запускать и останавливать локальные службы SQL Server, Oracle, PostgreSQL и других СУБД через меню в системном трее.
+TrayDB is a lightweight Windows tray utility for starting, stopping and monitoring local database services.
 
-Приложение написано на Windows PowerShell 5.1 и WinForms. Оно не создаёт главного окна, не подключается к базам данных, не хранит пароли и не требует сторонних библиотек.
+The application is written in Windows PowerShell 5.1 and WinForms. It has no main window, does not connect to databases, does not store passwords and does not require third-party libraries.
 
-![Меню TrayDB](docs/tray-menu.png)
+![TrayDB menu](docs/tray-menu.png)
 
-## Возможности
+## Features
 
-- запуск и остановка СУБД из системного трея;
-- управление несколькими службами одной СУБД в заданном порядке;
-- остановка служб в обратном порядке;
-- отображение текущего состояния каждой СУБД;
-- команда «Остановить всё»;
-- включение и выключение автозапуска прямо из меню;
-- отображение текущего состояния автозапуска;
-- отдельное окно PowerShell с результатом каждой операции;
-- ожидание фактического запуска или остановки службы с тайм-аутом 60 секунд;
-- защита от одновременного запуска нескольких экземпляров TrayDB;
-- создание ярлыка на рабочем столе;
-- автозапуск через Планировщик заданий с повышенными правами;
-- отсутствие установщика и внешних зависимостей.
+- start and stop database services from the Windows system tray;
+- manage several services as one database group;
+- start services in the configured order and stop them in reverse order;
+- display the current state of every database group;
+- stop all configured databases at once;
+- enable and disable autostart from the tray menu;
+- wait until each service actually reaches `Running` or `Stopped`;
+- protect against launching several TrayDB instances;
+- create a desktop shortcut;
+- run at logon through Task Scheduler with elevated privileges.
 
-## Требования
+## Requirements
 
-- Windows 10 или Windows 11;
-- Windows PowerShell 5.1, файл `powershell.exe`;
-- учётная запись с правами локального администратора;
-- локальные СУБД, зарегистрированные как службы Windows.
+- Windows 10 or Windows 11;
+- Windows PowerShell 5.1 (`powershell.exe`);
+- a local administrator account;
+- databases registered as local Windows services.
 
-PowerShell 7 не является целевой средой этого проекта.
+PowerShell 7 is not the target environment for this project.
 
-## Структура проекта
+## Important before launch
+
+The default configuration expects these exact Windows service names:
 
 ```text
-TrayDB/
-├── app.ps1
-├── app.ico
-├── README.md
-├── LICENSE
-├── .editorconfig
-└── docs/
-    └── tray-menu.png
+MSSQLSERVER
+OracleOraDB21Home1TNSListener
+OracleServiceORCL
+postgresql-x64-17
 ```
 
-## Быстрый запуск
+Service names may differ depending on the installed edition, instance name or database version. If TrayDB shows `ошибка / не установлена`, check the actual service names and update `$Script:Databases` in `app.ps1`.
 
-Откройте Windows PowerShell в папке проекта и выполните:
+To find likely database services, run:
+
+```powershell
+Get-Service |
+    Where-Object {
+        $_.Name -match 'MSSQL|SQL|Oracle|postgres|MySQL|Maria'
+    } |
+    Format-Table Status, Name, DisplayName -AutoSize
+```
+
+Use the value from `Name`, not `DisplayName`.
+
+## Quick start
+
+Open Windows PowerShell in the project directory and run:
 
 ```powershell
 Set-ExecutionPolicy -Scope Process -ExecutionPolicy Bypass -Force
 & ".\app.ps1"
 ```
 
-При первом ручном запуске Windows покажет запрос UAC. После подтверждения приложение запустится в отдельном скрытом процессе, а иконка появится в системном трее.
+On the first manual launch, Windows will show a UAC prompt. After confirmation, TrayDB starts in a separate hidden process and appears in the system tray.
 
-Если иконка не видна, раскройте область скрытых значков рядом с часами.
+If the icon is not visible, open the hidden icons area next to the Windows clock.
 
-Повторный запуск не создаёт вторую иконку. Для одного пользователя одновременно работает только один экземпляр TrayDB.
+## Recommended installation
 
-## Рекомендуемая установка
+For regular use, place TrayDB in:
 
-Для постоянного использования рекомендуется разместить приложение в папке `C:\Program Files\TrayDB`.
+```text
+C:\Program Files\TrayDB
+```
 
-Откройте Windows PowerShell от имени администратора в папке проекта и выполните:
+Open Windows PowerShell as administrator in the downloaded project directory and run:
 
 ```powershell
 $target = Join-Path $env:ProgramFiles 'TrayDB'
@@ -71,17 +82,17 @@ New-Item -ItemType Directory -Path $target -Force | Out-Null
 Copy-Item -Path .\app.ps1, .\app.ico -Destination $target -Force
 ```
 
-Затем запустите установленную копию:
+Then launch the installed copy:
 
 ```powershell
 powershell.exe -NoProfile -ExecutionPolicy Bypass -File "$env:ProgramFiles\TrayDB\app.ps1"
 ```
 
-Не рекомендуется настраивать автозапуск для файла, лежащего в `Downloads`, на рабочем столе или в другой папке, доступной для изменения обычными программами.
+Do not configure autostart while `app.ps1` is still located in `Downloads` or another temporary folder. Task Scheduler stores the absolute path to the script.
 
-## Использование
+## Tray menu
 
-Нажмите правой кнопкой мыши по иконке TrayDB:
+Right-click the TrayDB icon:
 
 ```text
 SQL Server   ▸  Запустить / Остановить / ● состояние
@@ -93,33 +104,24 @@ PostgreSQL   ▸  Запустить / Остановить / ● состоян
 Выход
 ```
 
-При открытии подменю конкретной СУБД TrayDB сразу проверяет её службы и затем обновляет состояние примерно раз в 2,5 секунды. После закрытия меню опрос прекращается.
+When a database submenu opens, TrayDB checks its services immediately and refreshes the state approximately every 2.5 seconds. Polling stops when the menu closes.
 
-Команды запуска и остановки открывают отдельное окно Windows PowerShell. Оно остаётся открытым после выполнения, чтобы можно было увидеть результат и возможную ошибку.
+Start and stop commands open a separate Windows PowerShell window. The window remains open so the result and any error message can be reviewed.
 
-Для каждой службы TrayDB ждёт требуемого состояния до 60 секунд. Следующая служба запускается или останавливается только после завершения предыдущей операции либо после тайм-аута.
+TrayDB waits up to 60 seconds for each service to reach the requested state before continuing to the next service.
 
-## Состояния СУБД
+## States
 
-| Индикатор | Состояние | Значение |
+| Indicator | State | Meaning |
 |---|---|---|
-| 🟢 | работает | все службы находятся в состоянии `Running` |
-| 🟡 | частично запущена | часть служб работает, часть остановлена |
-| ⚪ | остановлена | ни одна служба не работает |
-| 🔴 | ошибка / не установлена | служба не найдена или находится в неподдерживаемом состоянии |
+| 🟢 | работает | all services are `Running` |
+| 🟡 | частично запущена | some services are running and some are stopped |
+| ⚪ | остановлена | no services are running |
+| 🔴 | ошибка / не установлена | a service is missing or is in an unsupported state |
 
-Доступность команд зависит от состояния:
+## Configure databases
 
-| Состояние | Запустить | Остановить |
-|---|:---:|:---:|
-| работает | нет | да |
-| частично запущена | да | да |
-| остановлена | да | нет |
-| ошибка / не установлена | нет | нет |
-
-## Порядок запуска служб
-
-Список СУБД находится в начале файла `app.ps1`:
+The database map is located near the beginning of `app.ps1`:
 
 ```powershell
 $Script:Databases = [ordered]@{
@@ -129,27 +131,16 @@ $Script:Databases = [ordered]@{
 }
 ```
 
-Службы запускаются слева направо в указанном порядке.
+Services are started from left to right. They are stopped in reverse order.
 
-Для Oracle сначала запускается:
+For Oracle, TrayDB starts:
 
 ```text
 OracleOraDB21Home1TNSListener
-```
-
-Затем запускается:
-
-```text
 OracleServiceORCL
 ```
 
-При остановке используется обратный порядок.
-
-## Добавление другой СУБД
-
-Для добавления новой СУБД достаточно дописать одну строку в `$Script:Databases`.
-
-Пример для MySQL:
+To add MySQL, for example:
 
 ```powershell
 $Script:Databases = [ordered]@{
@@ -160,171 +151,105 @@ $Script:Databases = [ordered]@{
 }
 ```
 
-Используйте системное имя службы из свойства `Name`, а не отображаемое название `DisplayName`.
+After editing `app.ps1`, exit TrayDB through the tray menu and start it again.
 
-Найти установленные службы можно командой:
+Save `app.ps1` as UTF-8 with BOM so Russian text is displayed correctly in Windows PowerShell 5.1.
 
-```powershell
-Get-Service |
-    Where-Object {
-        $_.Name -match 'MSSQL|SQL|Oracle|postgres|MySQL|Maria'
-    } |
-    Format-Table Status, Name, DisplayName -AutoSize
-```
+## Autostart
 
-После изменения `app.ps1` завершите TrayDB через пункт «Выход» и запустите его заново.
-
-Файл `app.ps1` необходимо сохранять в кодировке UTF-8 with BOM. Это важно для корректного отображения русского текста в Windows PowerShell 5.1. Файл `.editorconfig` уже содержит соответствующую настройку для совместимых редакторов.
-
-## Автозапуск из меню
-
-Наведите курсор на пункт «Автозапуск».
-
-В подменю отображаются:
+Autostart can be enabled or disabled directly from the tray menu:
 
 ```text
-Включить
-Выключить
-─────────
-● включён / выключен / ошибка
+Автозапуск
+├── Включить
+├── Выключить
+└── ● включён / выключен / ошибка
 ```
 
-При выборе «Включить» TrayDB создаёт задачу Планировщика заданий. При выборе «Выключить» задача удаляется.
-
-Операция открывается в отдельном окне PowerShell. После её завершения закройте окно и заново откройте подменю «Автозапуск», чтобы увидеть обновлённое состояние.
-
-Задача создаётся с именем:
+TrayDB creates this Task Scheduler task:
 
 ```text
 TrayDB.DatabaseServiceManager
 ```
 
-Старая задача с именем `TrayDB`, оставшаяся от предыдущей версии, удаляется автоматически при включении автозапуска. При выключении приложение пытается удалить оба варианта имени.
+The task starts TrayDB at user logon with the highest privileges and without a UAC prompt on every login.
 
-## Автозапуск через команду
+The same operations are available from PowerShell.
 
-Включить автозапуск:
+Enable autostart:
 
 ```powershell
 powershell.exe -NoProfile -ExecutionPolicy Bypass -File "C:\Program Files\TrayDB\app.ps1" -InstallAutostart
 ```
 
-Выключить автозапуск:
+Disable autostart:
 
 ```powershell
 powershell.exe -NoProfile -ExecutionPolicy Bypass -File "C:\Program Files\TrayDB\app.ps1" -UninstallAutostart
 ```
 
-Проверить задачу:
+After moving or renaming `app.ps1`, enable autostart again so the task receives the new absolute path.
 
-```powershell
-Get-ScheduledTask -TaskName 'TrayDB.DatabaseServiceManager'
-```
-
-Задача использует:
-
-- запуск при входе текущего пользователя;
-- выполнение с наивысшими правами;
-- скрытый запуск Windows PowerShell;
-- параметр `-NoProfile`, чтобы пользовательский PowerShell-профиль не влиял на работу приложения;
-- отсутствие ограничения по времени выполнения;
-- разрешение работы от батареи.
-
-После перемещения или переименования `app.ps1` включите автозапуск заново, чтобы задача получила новый абсолютный путь.
-
-## Создание ярлыка
-
-Откройте PowerShell и выполните:
+## Desktop shortcut
 
 ```powershell
 powershell.exe -NoProfile -ExecutionPolicy Bypass -File "C:\Program Files\TrayDB\app.ps1" -CreateShortcut
 ```
 
-На рабочем столе текущего пользователя будет создан ярлык «Менеджер СУБД».
+This creates a desktop shortcut named `Менеджер СУБД`.
 
-Если после создания ярлыка файл `app.ps1` был перемещён, удалите старый ярлык и создайте новый.
+## Troubleshooting
 
-## Параметры запуска
+### Script not found
 
-| Параметр | Назначение |
-|---|---|
-| без параметров | запуск приложения в системном трее |
-| `-CreateShortcut` | создание ярлыка на рабочем столе |
-| `-InstallAutostart` | включение автозапуска |
-| `-UninstallAutostart` | выключение автозапуска |
-| `-Action Start` | внутренний режим запуска служб |
-| `-Action Stop` | внутренний режим остановки служб |
-| `-Action StopAll` | внутренний режим остановки всех СУБД |
-| `-Database <имя>` | название элемента из `$Script:Databases` для внутреннего режима |
-
-Параметры `-Action` и `-Database` обычно не нужно запускать вручную. Их использует само приложение.
-
-## Как это работает
-
-Основной процесс TrayDB работает в событийном цикле WinForms `Application.Run()`.
-
-Пока меню закрыто, таймер проверки служб остановлен. При открытии подменю запускается локальный вызов `Get-Service`. Интерфейс обновляется только при изменении состояния.
-
-Запуск и остановка выполняются в отдельном процессе `powershell.exe` с параметрами `-NoProfile` и `-NoExit`. Дочерний процесс наследует повышенные права TrayDB, поэтому повторный запрос UAC обычно не появляется.
-
-Для защиты от повторного запуска используется именованный mutex, привязанный к SID текущего пользователя.
-
-## Безопасность
-
-TrayDB работает с правами администратора, потому что обычный пользователь не всегда может управлять системными службами.
-
-- Просмотрите `app.ps1` перед первым запуском.
-- Храните рабочую копию в защищённой папке.
-- Не предоставляйте обычным пользователям право изменять установленный скрипт.
-- `-ExecutionPolicy Bypass` применяется только к запускаемому процессу PowerShell и не меняет системную политику выполнения.
-- `-NoProfile` не позволяет пользовательскому профилю PowerShell менять поведение TrayDB.
-- Приложение не запрашивает пароли СУБД и не выполняет сетевых запросов.
-
-## Устранение неполадок
-
-### Иконка не появилась
-
-1. Проверьте область скрытых значков Windows.
-2. Убедитесь, что запрос UAC не остался открытым за другими окнами.
-3. Проверьте в Диспетчере задач наличие процесса `powershell.exe`.
-4. Запустите `app.ps1` вручную из PowerShell, чтобы увидеть возможную синтаксическую ошибку.
-
-### Вторая иконка не появляется
-
-Это нормальное поведение. TrayDB разрешает только один экземпляр на пользователя.
-
-### СУБД отмечена красным
-
-Проверьте точное системное имя службы:
+Make sure PowerShell is opened in the directory containing `app.ps1`, or use the full path:
 
 ```powershell
-Get-Service -Name 'имя-службы'
+& "C:\Program Files\TrayDB\app.ps1"
 ```
 
-Если служба не найдена, исправьте запись в `$Script:Databases` и перезапустите TrayDB.
+### Red status
 
-### Служба не запускается или не останавливается
-
-Окно операции показывает текст ошибки и итоговое состояние службы.
-
-Дополнительная проверка:
+Check whether every configured service exists:
 
 ```powershell
-Get-Service -Name 'имя-службы' | Format-List *
+Get-Service -Name 'MSSQLSERVER'
+Get-Service -Name 'OracleOraDB21Home1TNSListener'
+Get-Service -Name 'OracleServiceORCL'
+Get-Service -Name 'postgresql-x64-17'
 ```
 
-Проверьте тип запуска службы, её зависимости, системный журнал Windows и права текущей учётной записи.
+### Tray icon does not appear
 
-### Автозапуск показывает ошибку
+- confirm the UAC prompt;
+- check the hidden icons area;
+- launch the script from an elevated PowerShell window and review any error;
+- make sure Windows PowerShell 5.1 is used instead of PowerShell 7.
 
-Проверьте задачу вручную:
+### Autostart does not work
+
+Check the task:
 
 ```powershell
-Get-ScheduledTask -TaskName 'TrayDB.DatabaseServiceManager' -ErrorAction SilentlyContinue
+Get-ScheduledTask -TaskName 'TrayDB.DatabaseServiceManager'
 ```
 
-Также убедитесь, что модуль `ScheduledTasks` доступен и PowerShell запущен с правами администратора.
+Confirm that its action points to the current location of `app.ps1`.
 
-## Лицензия
+## Security
 
-Проект распространяется по лицензии MIT. Полный текст находится в файле `LICENSE`.
+TrayDB only manages local Windows services listed in `$Script:Databases`.
+
+It does not:
+
+- connect to database servers;
+- read or modify database data;
+- store credentials;
+- open network ports;
+- download or execute external code.
+
+Elevated privileges are required because Windows service management is an administrative operation.
+
+## License
+
+TrayDB is available under the MIT License. See [LICENSE](LICENSE).
